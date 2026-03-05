@@ -6,8 +6,81 @@ on:
       - main
 
 jobs:
+
+  # ─────────────────────────────────────
+  # SCAN 1 — Gitleaks (secrets)
+  # ─────────────────────────────────────
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ─────────────────────────────────────
+  # SCAN 2 — Semgrep (SAST)
+  # ─────────────────────────────────────
+  semgrep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        run: |
+          pip install semgrep
+          semgrep scan --config auto public/ \
+            --json > docs/compliance/report-sast.json || true
+
+      - name: Upload SAST report
+        uses: actions/upload-artifact@v4
+        with:
+          name: sast-report
+          path: docs/compliance/report-sast.json
+
+  # ─────────────────────────────────────
+  # SCAN 3 — Trivy (SCA + SBOM)
+  # ─────────────────────────────────────
+  trivy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy (vulnérabilités)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: json
+          output: docs/compliance/report-sca.json
+
+      - name: Generate SBOM
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: cyclonedx
+          output: docs/compliance/sbom.json
+
+      - name: Upload SCA + SBOM reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: sca-sbom-reports
+          path: docs/compliance/
+
+  # ─────────────────────────────────────
+  # DEPLOY — seulement si tous les scans passent
+  # ─────────────────────────────────────
   deploy:
     runs-on: ubuntu-latest
+    needs: [gitleaks, semgrep, trivy]
 
     steps:
       - name: Checkout code
@@ -32,3 +105,27 @@ jobs:
             docker compose build &&
             docker compose up -d
           "
+
+  # ─────────────────────────────────────
+  # SCAN 4 — OWASP ZAP (DAST)
+  # ─────────────────────────────────────
+  zap:
+    runs-on: ubuntu-latest
+    needs: [deploy]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run OWASP ZAP
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: http://${{ secrets.SERVER_HOST }}
+          rules_file_name: .zap/rules.tsv
+          cmd_options: '-a'
+
+      - name: Upload DAST report
+        uses: actions/upload-artifact@v4
+        with:
+          name: dast-report
+          path: report_html.html
