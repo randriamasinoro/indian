@@ -5,5 +5,8 @@ services:
       dockerfile: docker/Dockerfile
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     restart: unless-stopped
     container_name: resto-site
