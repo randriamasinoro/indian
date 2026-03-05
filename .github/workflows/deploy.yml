@@ -21,9 +21,12 @@ jobs:
           ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
 
       - name: Deploy to server
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
         run: |
           ssh -i ~/.ssh/deploy_key ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "
             cd /home/ubuntu/app &&
+            git remote set-url origin https://randriamasinoro:$GH_PAT@github.com/randriamasinoro/indian.git &&
             git pull origin main &&
             docker compose down &&
             docker compose build &&
