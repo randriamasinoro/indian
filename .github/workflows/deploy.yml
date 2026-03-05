@@ -108,7 +108,7 @@ jobs:
             git remote set-url origin https://randriamasinoro:$GH_PAT@github.com/randriamasinoro/indian.git &&
             git pull origin main &&
             docker compose down &&
-            docker compose build &&
+            docker compose build --no-cache &&
             docker compose up -d
           "
 
