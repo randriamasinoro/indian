@@ -1,7 +1,8 @@
 <div align="center">
-```
+
 🍛 INDIAN FOOD × DEVSECOPS
-```
+
+
 
 ### 🚀 Projet DevSecOps CI/CD — Apprentissage complet
 
