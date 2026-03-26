@@ -4,8 +4,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile
     ports:
-      - "80:80"
-      - "443:443"
+      - "8001:80"
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt:ro
     restart: unless-stopped
