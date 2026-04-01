@@ -11,22 +11,25 @@ let animate = function(){
 }
 
 // Mémoire du chat (contexte)
-let chefContext = [
-    { role: "system", content: "Tu es le Chef du restaurant Brunch. Tu es accueillant et expert en cuisine indienne." }
-];
+// On attache les fonctions à "window" pour que le HTML puisse les voir 
+// même après la compilation/minification.
 
-function toggleChefChat() {
-    const container = document.getElementById('chef-chat-container');
-    // Bascule la classe. Le CSS s'occupe de cacher le bouton automatiquement.
-    container.classList.toggle('chef-chat-closed');
-    console.log("Permutation du chat !");
-}
+window.toggleChefChat = function() {
+    const container = document.getElementById('chef-chat-messages')?.parentElement;
+    // Note : utilise l'ID du container que tu as dans ton HTML
+    const chatWin = document.getElementById('chef-chat-container');
+    if (chatWin) {
+        chatWin.classList.toggle('chef-chat-closed');
+        console.log("Chat basculé !");
+    }
+};
 
-async function askTheChef() {
+window.askTheChef = async function() {
     const input = document.getElementById('chef-user-input');
     const area = document.getElementById('chef-chat-messages');
-    const text = input.value.trim();
+    if (!input || !area) return;
 
+    const text = input.value.trim();
     if (!text) return;
 
     area.innerHTML += `<div class="message user-msg">${text}</div>`;
@@ -47,6 +50,6 @@ async function askTheChef() {
         area.innerHTML += `<div class="message chef-msg">${data.message.content}</div>`;
         area.scrollTop = area.scrollHeight;
     } catch (e) {
-        area.innerHTML += `<div class="message chef-msg" style="color:red">Le Chef est indisponible.</div>`;
+        area.innerHTML += `<div class="message chef-msg" style="color:red">Le Chef est occupé.</div>`;
     }
-}
+};
