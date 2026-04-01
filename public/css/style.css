@@ -560,6 +560,8 @@ p.easy {
   padding: 0 20px;
 }
 
+
+
 article.madeEasy div.flexROnd {
   position: relative;
 }
@@ -2386,3 +2388,80 @@ select:focus {
     background-attachment: scroll !important;
   }
 }
+/* ======================== Bot =============*/
+/* --- DESIGN DU CHATBOT (PERMUTATION À GAUCHE) --- */
+
+/* Le Wrapper : Fixé en bas à GAUCHE */
+#chef-chat-wrapper {
+    position: fixed;
+    bottom: 30px;
+    left: 30px; /* Changé de right à left */
+    z-index: 10001; /* On s'assure qu'il est au-dessus du reste */
+}
+
+/* LA FENÊTRE : À gauche */
+#chef-chat-container {
+    width: 400px;
+    height: 500px;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* LE BOUTON : À gauche */
+#chef-chat-trigger {
+    width: 60px;
+    height: 60px;
+    background-color: #ad6c12;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 24px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* --- LOGIQUE DE PERMUTATION --- */
+
+/* 1. Quand le container est FERMÉ : invisible */
+#chef-chat-container.chef-chat-closed {
+    display: none; 
+}
+
+/* 2. Quand le container est OUVERT : on cache le bouton */
+#chef-chat-container:not(.chef-chat-closed) + #chef-chat-trigger {
+    display: none;
+}
+
+/* --- RESPONSIVE (MOBILE) --- */
+@media (max-width: 500px) {
+    #chef-chat-wrapper {
+        bottom: 20px;
+        left: 15px; /* Plus près du bord sur mobile */
+    }
+    
+    #chef-chat-container {
+        width: 85vw; /* 85% de la largeur du téléphone */
+        height: 70vh; /* 70% de la hauteur */
+    }
+}
+
+/* --- STYLES INTERNES --- */
+.chef-chat-header {
+    background: #ad6c12; color: white; padding: 15px;
+    display: flex; justify-content: space-between; align-items: center;
+}
+.chef-close-btn { background: none; border: none; color: white; font-size: 24px; cursor: pointer; }
+#chef-chat-messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; background: #f9f9f9; }
+.message { padding: 10px 15px; border-radius: 15px; font-size: 14px; max-width: 85%; line-height: 1.4; word-wrap: break-word; }
+.chef-msg { background: #eee; align-self: flex-start; color: #333; }
+.user-msg { background: #ad6c12; color: white; align-self: flex-end; }
+.chef-chat-input-zone { padding: 15px; border-top: 1px solid #eee; display: flex; gap: 10px; background: white; }
+#chef-user-input { flex: 1; border: 1px solid #ddd; border-radius: 20px; padding: 8px 15px; outline: none; }
+#chef-send-btn { background: none; border: none; color: #ad6c12; cursor: pointer; font-size: 18px; }

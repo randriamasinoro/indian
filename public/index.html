@@ -444,6 +444,32 @@
         </div>
       </div>
     </footer>
+    <div id="chef-chat-wrapper">
+    <div id="chef-chat-container" class="chef-chat-closed">
+        <div class="chef-chat-header">
+            <div class="chef-profile">
+                <div class="online-indicator"></div>
+                <span>Chef Brunch IA</span>
+            </div>
+            <button onclick="toggleChefChat()" class="chef-close-btn">&times;</button>
+        </div>
+
+        <div id="chef-chat-messages">
+            <div class="message chef-msg">Namaste ! Une question sur nos épices ou une recette ? Je vous écoute.</div>
+        </div>
+
+        <div class="chef-chat-input-zone">
+            <input type="text" id="chef-user-input" placeholder="Votre message..." onkeypress="if(event.key === 'Enter') askTheChef()">
+            <button onclick="askTheChef()" id="chef-send-btn">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
+
+    <button id="chef-chat-trigger" onclick="toggleChefChat()">
+        <i class="fas fa-utensils"></i>
+    </button>
+</div>
     <script src="../Icone/fontawesome-free-6.2.0-web/fontawesome-free-6.2.0-web/js/all.js"></script>
     <script src="JS/main.js"></script>
     <script>
@@ -742,6 +768,12 @@
           menuContainer.scrollBy({ left: scrollAmount, behavior: 'smooth' });
         }
       });
+
+     
+
     </script>
+
+
+
   </body>
 </html>
