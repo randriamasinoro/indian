@@ -37,7 +37,7 @@ window.askTheChef = async function() {
     area.scrollTop = area.scrollHeight;
 
     try {
-        const response = await fetch('http://158.178.192.145:11434/api/chat', {
+        const response = await fetch('https://wp-dev-elisa.duckdns.org/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
