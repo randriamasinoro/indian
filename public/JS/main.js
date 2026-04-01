@@ -50,6 +50,8 @@ window.askTheChef = async function() {
         area.innerHTML += `<div class="message chef-msg">${data.message.content}</div>`;
         area.scrollTop = area.scrollHeight;
     } catch (e) {
+        console.error("ERREUR DETECTEE :", e); // Affiche l'erreur complète
+        chatBox.innerHTML += `<p style="color:red;">Erreur : ${e.message}</p>`;
         area.innerHTML += `<div class="message chef-msg" style="color:red">Le Chef est occupé.</div>`;
     }
 };
