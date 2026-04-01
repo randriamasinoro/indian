@@ -2393,10 +2393,12 @@ select:focus {
 
 /* Le Wrapper : Fixé en bas à GAUCHE */
 #chef-chat-wrapper {
-    position: fixed;
-    bottom: 30px;
-    left: 30px; /* Changé de right à left */
-    z-index: 10001; /* On s'assure qu'il est au-dessus du reste */
+    position: fixed !important;
+    bottom: 30px !important;
+    left: 30px !important;
+    z-index: 9999999 !important;
+    width: auto !important;
+    height: auto !important;
 }
 
 /* LA FENÊTRE : À gauche */
@@ -2413,18 +2415,20 @@ select:focus {
 
 /* LE BOUTON : À gauche */
 #chef-chat-trigger {
-    width: 60px;
-    height: 60px;
-    background-color: #ad6c12;
-    color: white;
-    border: none;
-    border-radius: 50%;
-    cursor: pointer;
-    font-size: 24px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: flex !important; /* Force l'affichage */
+    align-items: center !important;
+    justify-content: center !important;
+    width: 60px !important;   /* Largeur forcée */
+    height: 60px !important;  /* Hauteur forcée */
+    background-color: #ad6c12 !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 50% !important;
+    cursor: pointer !important;
+    font-size: 24px !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+    visibility: visible !important;
+    opacity: 1 !important;
 }
 
 /* --- LOGIQUE DE PERMUTATION --- */
