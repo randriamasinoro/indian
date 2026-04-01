@@ -5,21 +5,23 @@ on:
     branches:
       - main
 
+# On force Node.js 24 pour supprimer les warnings de deprecation
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
-  # 1. Verification des secrets dans l'historique
   gitleaks:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1 # On ne prend que le dernier commit pour aller VITE
       - name: Run Gitleaks
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # 2. Analyse statique du code (SAST)
   semgrep:
     runs-on: ubuntu-latest
     steps:
@@ -30,7 +32,6 @@ jobs:
           pip install semgrep
           semgrep scan --config auto public/
 
-  # 3. Scan de vulnerabilites de l'image
   trivy:
     runs-on: ubuntu-latest
     steps:
@@ -41,12 +42,14 @@ jobs:
         with:
           scan-type: 'fs'
           format: 'table'
-          exit-code: '0'
 
-  # 4. Construction de l'image et envoi vers GitHub Packages (GHCR)
   build-and-push:
     runs-on: ubuntu-latest
     needs: [gitleaks, semgrep, trivy]
+    # On donne explicitement le droit d'ecrire des packages
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -57,7 +60,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to GitHub Container Registry
+      - name: Login to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -65,15 +68,15 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and Push Image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6 # Passage en v6 pour Node 24
         with:
           context: .
           file: docker/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository }}/resto-site:latest
+          # CORRECTION ICI : Pas de sous-dossier dans le nom du package
+          tags: ghcr.io/${{ github.repository_owner }}/resto-site:latest
           platforms: linux/arm64
 
-  # 5. Deploiement sur le serveur Oracle (SSH)
   deploy:
     runs-on: ubuntu-latest
     needs: [build-and-push]
@@ -85,17 +88,27 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Connexion au registre avec le token temporaire du job
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            
-            # Aller dans le dossier du projet
             cd /home/ubuntu/app
-            
-            # Telecharger la nouvelle image
-            docker compose pull
-            
-            # Relancer le service avec la nouvelle image
+            # Mise a jour de l'image (doit correspondre au tag du build)
+            docker pull ghcr.io/${{ github.repository_owner }}/resto-site:latest
             docker compose up -d --remove-orphans
-            
-            # Nettoyage des vieilles images pour liberer de l'espace
             docker image prune -f
+
+  zap:
+    runs-on: ubuntu-latest
+    needs: [deploy]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: http://${{ secrets.SERVER_HOST }}
+          rules_file_name: .zap/rules.tsv
+          cmd_options: '-a'
+      - name: Upload DAST report
+        uses: actions/upload-artifact@v4
+        with:
+          name: dast-report
+          path: report_html.html

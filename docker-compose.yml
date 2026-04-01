@@ -1,11 +1,14 @@
 services:
   web:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
+    image: ghcr.io/randriamasinoro/resto-site:latest
+    container_name: resto-site
     ports:
       - "8001:80"
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt:ro
     restart: unless-stopped
-    container_name: resto-site
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
