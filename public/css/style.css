@@ -7,6 +7,11 @@
   src: url(../font/Cookie/Cookie-Regular.ttf);
 }
 
+/* Classe utilitaire — remplace les styles inline (CSP sans unsafe-inline) */
+.is-hidden {
+  display: none !important;
+}
+
 /* BASE STYLES */
 * {
   padding: 0;

@@ -106,6 +106,32 @@ Scan dynamique du site **en production** après déploiement. ZAP simule un atta
 
 ---
 
+## Ce que ZAP a identifié — et corrigé
+
+C'est ici que le DAST a eu le plus de valeur concrète. La première exécution de ZAP a remonté une série de **WARN** sur des en-têtes de sécurité absents ou mal configurés. Chacun a été corrigé directement dans la configuration Nginx (`docker/nginx.conf`), puis re-vérifié au scan suivant. Le tableau ci-dessous résume chaque vulnérabilité, la correction appliquée, et **le risque concret si elle était passée inaperçue**.
+
+| Vulnérabilité (ZAP) | Correction | Risque si non corrigé |
+|---|---|---|
+| **HSTS absent** [10035] | `Strict-Transport-Security: max-age=31536000` | SSL stripping : un attaquant en MITM force la connexion en HTTP clair et intercepte/modifie le trafic |
+| **CSP absente** [10038] | `Content-Security-Policy` strict ajouté | Aucune barrière contre l'injection de scripts/contenu : un XSS s'exécute librement dans le navigateur du visiteur |
+| **CSP `style-src 'unsafe-inline'`** [10055] | Styles inline externalisés en classe CSS, `'unsafe-inline'` retiré | Un CSP avec `unsafe-inline` n'arrête pas l'injection de styles malveillants (défacement, exfiltration de données via CSS) |
+| **CSP directives sans fallback** [10055] | Ajout de `frame-ancestors`, `form-action`, `base-uri`, `object-src` | Clickjacking (page embarquée dans une iframe pirate), détournement de soumission de formulaire, injection d'objets |
+| **COOP / COEP / CORP manquants** [90004] | `Cross-Origin-Opener-Policy`, `-Embedder-Policy`, `-Resource-Policy` | Attaques cross-origin (fenêtres détournées, fuites mémoire type Spectre) |
+| **Permissions-Policy absente** [10063] | Header désactivant géoloc/micro/caméra/paiement | Une page tierce embarquant le site pourrait solliciter des API sensibles du navigateur |
+| **Fuite de version serveur** [10036] / banner [10009] | `server_tokens off` | La version exacte de Nginx exposée facilite le ciblage d'exploits CVE connus |
+
+### Le tri des faux positifs
+
+Tout aussi formateur : ZAP a aussi remonté des alertes qui n'étaient **pas** des vulnérabilités dans ce contexte. Les écarter à la légère est une erreur ; les justifier l'est tout autant. J'ai documenté chaque exclusion dans `.zap/rules.tsv` :
+
+- **Absence of Anti-CSRF Tokens** [10202] — le site est 100 % statique, aucun formulaire POST : pas de surface CSRF.
+- **Storable and Cacheable Content** [10049] — la mise en cache est *souhaitable* pour un site statique, pas un défaut.
+- **Modern Web Application** [10109] — alerte purement informative, aucune action requise.
+
+> La leçon : un rapport DAST ne se lit pas comme une liste de bugs à corriger aveuglément. Chaque alerte demande une décision — corriger, ou justifier l'exclusion par écrit. C'est exactement la démarche d'analyse de risque attendue par le CRA.
+
+---
+
 ## Analyse de sécurité (méthode STRIDE)
 
 | Risque | Score initial | Mesures | Résiduel |
@@ -125,22 +151,20 @@ Le seul risque résiduel accepté est le **déni de service** : une protection c
 ## Limites
 
 - **Pas de WAF** : le site est directement exposé sans filtrage applicatif avancé.
-- **Un seul nœud** : pas de haute disponibilité. Si le VPS tombe, le site est indisponible.
-- **DuckDNS** : solution de DNS dynamique gratuite, fiabilité non garantie pour un usage professionnel.
 - **Nœud unique** : pas de haute disponibilité. Si le VPS tombe, le site est indisponible.
-- **CSP absente** : la Content Security Policy n'est pas configurée (identifié par ZAP, non corrigé en v1.0).
+- **DuckDNS** : solution de DNS dynamique gratuite, fiabilité non garantie pour un usage professionnel.
+- **DAST détectif, pas préventif** : ZAP scanne *après* déploiement. Une vulnérabilité n'est donc visible qu'une fois le site déjà en ligne — un WAF en frontal comblerait ce délai.
 - **Site statique pur** : aucune interaction serveur, donc le périmètre de test de sécurité reste limité.
 
 ---
 
 ## Évolutions envisagées
 
-- **Ajouter un CSP header** dans la config nginx du container pour clôturer les warnings ZAP restants.
 - **Cloudflare en frontal** : proxy gratuit qui apporte DDoS protection, CDN et WAF basique — résoudrait le risque R5.
+- **Wazuh (SIEM)** : monitorer les logs Nginx pour détecter en temps réel les tentatives d'attaque (SQLi, XSS, scans) et déclencher des alertes — complète le DAST par de la détection en continu.
 - **Watchtower** : mise à jour automatique de l'image Docker dès qu'une nouvelle version est publiée sur GHCR.
 - **Notifications Slack/Discord** : alertes en cas d'échec d'un security gate en CI.
 - **Tests de charge** (k6 ou Locust) : ajouter un job de performance au pipeline pour détecter les régressions.
-- **Multi-stage Dockerfile** : séparer la phase de build (si un compilateur est ajouté) de la phase de run pour réduire encore la taille de l'image.
 
 ---
 
