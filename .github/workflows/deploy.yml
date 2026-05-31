@@ -5,20 +5,16 @@ on:
     branches:
       - main
 
-# On force Node.js 24 pour supprimer les warnings de deprecation
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   gitleaks:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1 # On ne prend que le dernier commit pour aller VITE
       - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -26,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Run Semgrep
         run: |
           pip install semgrep
@@ -36,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Run Trivy
         uses: aquasecurity/trivy-action@master
         with:
@@ -52,23 +48,23 @@ jobs:
       packages: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Login to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and Push Image
-        uses: docker/build-push-action@v6 # Passage en v6 pour Node 24
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: docker/Dockerfile
@@ -102,7 +98,7 @@ jobs:
       issues: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.15.0
         with:
@@ -110,7 +106,7 @@ jobs:
           rules_file_name: .zap/rules.tsv
           cmd_options: '-a'
       - name: Upload DAST report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: dast-report
           path: report_html.html
