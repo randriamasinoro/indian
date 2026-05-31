@@ -1,0 +1,174 @@
+---
+title: "Indian Food — Landing page DevSecOps"
+date: "2026-03-05"
+tags: ["DevSecOps", "Docker", "Nginx", "CI/CD", "OWASP", "GitHub Actions"]
+summary: "Un site vitrine de restaurant déployé en production avec une chaîne DevSecOps complète : analyse statique, scan de dépendances, tests dynamiques et déploiement automatisé sur Oracle Cloud ARM64."
+domain: "devsecops"
+---
+
+## Contexte
+
+Ce projet est né d'une contrainte pédagogique claire : prouver que les pratiques **DevSecOps** ne sont pas réservées aux grosses applications. L'idée était de prendre le cas le plus simple qui soit — un site vitrine statique pour un restaurant de cuisine indienne — et d'y appliquer une chaîne de sécurité complète, du commit au déploiement en production.
+
+Le contenu est volontairement trivial. Ce qui est mis en avant, c'est l'infrastructure et le pipeline.
+
+---
+
+## Objectifs
+
+- Déployer un site en production avec HTTPS sur un serveur personnel (Oracle Cloud Free Tier)
+- Implémenter une chaîne CI/CD avec des **security gates** bloquants
+- Couvrir les quatre vecteurs d'analyse : secrets, code statique, dépendances, tests dynamiques
+- **Comprendre le Cyber Resilience Act (CRA) en pratique** — pas seulement lire le texte, mais traduire ses exigences en livrables concrets sur un vrai projet déployé
+
+---
+
+## Stack technique
+
+| Couche | Choix | Raison |
+|--------|-------|--------|
+| Site | HTML / CSS / Vanilla JS | Zéro dépendance, surface d'attaque minimale |
+| Conteneur | `nginx:alpine` | Image légère (~7 Mo), durcissement possible |
+| Orchestration | Docker Compose | Simple, suffisant pour un seul service |
+| Registry | GitHub Container Registry (GHCR) | Intégration native avec GitHub Actions, gratuit |
+| CI/CD | GitHub Actions | Écosystème riche en actions de sécurité |
+| Infra | Oracle Cloud ARM64 (Ampere A1) | Free Tier permanent, architecture ARM64 |
+| DNS | DuckDNS | DNS dynamique gratuit pour IP variable |
+| SSL | Let's Encrypt + Certbot | Certificat automatisé, renouvellement par cron |
+| Reverse proxy | Nginx (host) | Terminaison TLS, séparation des responsabilités |
+
+---
+
+## Architecture de déploiement
+
+```
+git push
+    │
+    ▼
+GitHub Actions ──► Gitleaks ──► Semgrep ──► Trivy
+                                              │
+                                   (security gates)
+                                              │ tout passe
+                                              ▼
+                               Build image linux/arm64
+                               Push → ghcr.io/randriamasinoro/resto-site
+                                              │
+                                              ▼
+                               SSH → Oracle Cloud VPS
+                               docker compose up -d
+                                              │
+                                              ▼
+                               OWASP ZAP (DAST post-déploiement)
+```
+
+```
+Navigateur
+    │ https://indian-food.duckdns.org
+    ▼
+DuckDNS → IP Oracle Cloud
+    │ port 443
+    ▼
+Nginx host  ← TLS terminé ici (Let's Encrypt)
+    │ http://localhost:8001
+    ▼
+Docker container (nginx:alpine + fichiers statiques)
+```
+
+---
+
+## Pipeline DevSecOps détaillé
+
+### 1. Gitleaks — Détection de secrets
+
+Scan de l'ensemble du dépôt à la recherche de credentials oubliés (tokens, clés SSH, mots de passe). Le déploiement est **bloqué** si un secret est détecté.
+
+> Ce gate a prouvé sa valeur en pratique : un token GitHub a été accidentellement commité lors du développement. Gitleaks a bloqué le push avant que le token n'atteigne le registre public.
+
+### 2. Semgrep — SAST (Static Application Security Testing)
+
+Analyse statique du code source (`public/`) pour détecter des patterns dangereux : injections, mauvaise gestion des entrées, fonctions obsolètes. Les règles `auto` couvrent HTML, CSS et JavaScript.
+
+### 3. Trivy — SCA + SBOM
+
+Scan des dépendances du système de fichiers pour identifier les CVE connues sur les packages utilisés. Génère un **Software Bill of Materials** (SBOM) au format CycloneDX — inventaire complet des composants logiciels, exigé par le CRA pour la traçabilité.
+
+### 4. Build ARM64
+
+L'image Docker est compilée pour `linux/arm64` via QEMU + Docker Buildx, adapté à l'architecture Ampere d'Oracle Cloud. Le build multi-plateforme sur runner `ubuntu-latest` (x86_64) est transparent grâce à l'émulation.
+
+### 5. Deploy via SSH
+
+Le runner GitHub Actions SSH sur le VPS, tire la nouvelle image depuis GHCR et relance le container avec `docker compose up -d --remove-orphans`. Aucun artifact n'est transféré : seule l'image Docker circule.
+
+### 6. OWASP ZAP — DAST (Dynamic Application Security Testing)
+
+Scan dynamique du site **en production** après déploiement. ZAP simule un attaquant en testant les en-têtes HTTP, les redirections, les éléments HTML contrôlables, les politiques de cache, etc. Le rapport HTML est archivé comme artifact du workflow.
+
+---
+
+## Analyse de sécurité (méthode STRIDE)
+
+| Risque | Score initial | Mesures | Résiduel |
+|--------|:---:|---------|:---:|
+| Interception HTTP | 4 | HTTPS TLS 1.3 + HSTS | Faible ✅ |
+| Accès SSH non autorisé | 12 | Clé ED25519 + Fail2ban + UFW | Faible ✅ |
+| Défacement du site | 6 | Container éphémère + Trivy | Faible ✅ |
+| Secrets dans le code | 8 | Gitleaks + GitHub Secrets | Faible ✅ |
+| Déni de service | 6 | Fail2ban + cgroups Docker | Moyen ⚠️ |
+| CVE dépendances | 6 | Trivy + Security Gate | Faible ✅ |
+| Attaques navigateur | 4 | Headers HTTP + OWASP ZAP | Faible ✅ |
+
+Le seul risque résiduel accepté est le **déni de service** : une protection complète nécessiterait un WAF ou un CDN (Cloudflare), hors scope pour ce projet.
+
+---
+
+## Limites
+
+- **Pas de WAF** : le site est directement exposé sans filtrage applicatif avancé.
+- **Un seul nœud** : pas de haute disponibilité. Si le VPS tombe, le site est indisponible.
+- **DuckDNS** : solution de DNS dynamique gratuite, fiabilité non garantie pour un usage professionnel.
+- **Nœud unique** : pas de haute disponibilité. Si le VPS tombe, le site est indisponible.
+- **CSP absente** : la Content Security Policy n'est pas configurée (identifié par ZAP, non corrigé en v1.0).
+- **Site statique pur** : aucune interaction serveur, donc le périmètre de test de sécurité reste limité.
+
+---
+
+## Évolutions envisagées
+
+- **Ajouter un CSP header** dans la config nginx du container pour clôturer les warnings ZAP restants.
+- **Cloudflare en frontal** : proxy gratuit qui apporte DDoS protection, CDN et WAF basique — résoudrait le risque R5.
+- **Watchtower** : mise à jour automatique de l'image Docker dès qu'une nouvelle version est publiée sur GHCR.
+- **Notifications Slack/Discord** : alertes en cas d'échec d'un security gate en CI.
+- **Tests de charge** (k6 ou Locust) : ajouter un job de performance au pipeline pour détecter les régressions.
+- **Multi-stage Dockerfile** : séparer la phase de build (si un compilateur est ajouté) de la phase de run pour réduire encore la taille de l'image.
+
+---
+
+## Le CRA en pratique
+
+Le **Cyber Resilience Act** est un règlement européen qui impose des exigences de cybersécurité aux produits numériques mis sur le marché. Première précision importante : **ce site ne tombe pas dans le champ d'application du CRA**. Le règlement cible les produits avec des éléments numériques (PDE) commercialisés — un site vitrine personnel n'est pas mis sur le marché au sens du règlement.
+
+L'objectif n'était donc pas de "se conformer au CRA", mais de s'en servir comme **cadre méthodologique** pour apprendre à structurer une démarche de sécurité : qu'est-ce qu'une évaluation des risques formelle ? Comment documenter un SBOM ? Que met-on dans une déclaration de conformité ?
+
+Ce projet a servi de terrain d'expérimentation pour traduire les exigences du CRA en livrables réels :
+
+| Exigence CRA | Traduction concrète dans ce projet |
+|---|---|
+| Évaluation des risques | Analyse STRIDE sur 7 vecteurs, score et risque résiduel documentés |
+| Gestion des vulnérabilités | Trivy SCA + Security Gate bloquant en CI |
+| Traçabilité des composants | SBOM CycloneDX généré automatiquement à chaque build |
+| Tests de sécurité | SAST (Semgrep) + DAST (OWASP ZAP) dans le pipeline |
+| Sécurité par conception | Site 100% statique, container sans privilèges, surface d'attaque minimale |
+| Documentation technique | Architecture, analyse des risques, déclaration de conformité |
+
+L'exercice a mis en évidence un écart entre la théorie et la pratique : le CRA parle d'"évaluation des risques" et de "mesures appropriées" de façon abstraite. Appliquer ça sur un projet réel — même hors scope réglementaire — force à prendre des décisions tranchées : quel risque on accepte, pourquoi, et comment on le documente. Le risque DoS (R5) accepté faute de WAF en est un exemple direct.
+
+---
+
+## Ce que ce projet m'a appris
+
+Appliquer DevSecOps à un site statique est intentionnellement disproportionné — et c'est le point. L'objectif était de maîtriser la mécanique du pipeline (ordering des jobs, `needs`, permissions, artifacts) et les outils (Gitleaks, Semgrep, Trivy, ZAP) dans un contexte où une erreur ne coûte rien.
+
+Le vrai enseignement est venu d'un incident réel : un token GitHub commité par erreur, bloqué par Gitleaks avant d'atteindre le dépôt public. Le pipeline a fonctionné exactement comme prévu — c'est plus formateur que n'importe quel cours.
+
+Sur le CRA : comprendre un règlement en lisant ses articles est trompeur. C'est en cherchant à générer un SBOM conforme ou à documenter un risque résiduel accepté — même sur un projet hors scope — qu'on mesure ce que le texte exige vraiment des fabricants qui, eux, y sont soumis.
